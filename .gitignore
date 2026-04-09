@@ -1,0 +1,24 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/studiobot.xml
+.idea/
+.idea/modules/
+/build
+/*/build
+*.hprof
+.cxx
+.externalNativeBuild
+# Generated APKs/Bundles
+*.apk
+*.aab
+# OS generated files
+.DS_Store
+Thumbs.db
