@@ -29,29 +29,64 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield
+
+// Paleta de colores basada en la imagen (Dark Theme)
+val DarkBg = Color(0xFF0F1115)
+val SurfaceDark = Color(0xFF1C1F26)
+val AccentPurple = Color(0xFFB0B0F0)
+val OnSurfaceText = Color(0xFFFFFFFF)
+val SecondaryGray = Color(0xFF949BA5)
+
+private val AppDarkColorScheme = darkColorScheme(
+    primary = Color.White,
+    onPrimary = Color.Black,
+    primaryContainer = Color.Black,
+    onPrimaryContainer = Color.White,
+    background = DarkBg,
+    onBackground = OnSurfaceText,
+    surface = SurfaceDark,
+    onSurface = OnSurfaceText,
+    surfaceVariant = SurfaceDark,
+    onSurfaceVariant = SecondaryGray
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Inicializar AdMob
+        MobileAds.initialize(this) {}
+
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = AppDarkColorScheme) {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Main) }
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    when (val screen = currentScreen) {
+                    when (currentScreen) {
                         is Screen.Main -> MainRecipeScreen(onRecipeClick = { receta ->
-                            if (receta.nombre == "Completos") {
-                                currentScreen = Screen.CalculadoraCompletos
+                            currentScreen = when (receta.nombre) {
+                                "Completos" -> Screen.CalculadoraCompletos
+                                "Humitas" -> Screen.CalculadoraHumitas
+                                else -> Screen.Main
                             }
                         })
                         is Screen.CalculadoraCompletos -> {
                             BackHandler { currentScreen = Screen.Main }
                             CalculadoraCompletosScreen(onBack = { currentScreen = Screen.Main })
+                        }
+                        is Screen.CalculadoraHumitas -> {
+                            BackHandler { currentScreen = Screen.Main }
+                            CalculadoraHumitasScreen(onBack = { currentScreen = Screen.Main })
                         }
                     }
                 }
@@ -63,6 +98,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen {
     object Main : Screen()
     object CalculadoraCompletos : Screen()
+    object CalculadoraHumitas : Screen()
 }
 
 data class Receta(
@@ -72,41 +108,58 @@ data class Receta(
     val imagenRes: Int
 )
 
+@Composable
+fun AdBanner(modifier: Modifier = Modifier) {
+    // ID de bloque de anuncios de prueba de Google
+    // Reemplazar con tu ID real de AdMob cuando publiques la app
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { context ->
+            AdView(context).apply {
+                setAdSize(AdSize.BANNER)
+                adUnitId = "ca-app-pub-3940256099942544/6300978111"
+                loadAd(AdRequest.Builder().build())
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainRecipeScreen(onRecipeClick: (Receta) -> Unit) {
     val recetas = remember {
         listOf(
             Receta(1, "Completos", "El clásico chileno con palta, tomate y mayo.", R.drawable.banner_completos),
-            Receta(2, "Empanadas de Pino", "Tradicionales empanadas al horno.", R.drawable.banner_completos),
-            Receta(3, "Cazuela de Vacuno", "Sopa nutritiva con carne y verduras.", R.drawable.banner_completos),
-            Receta(4, "Pastel de Choclo", "Delicioso pastel de maíz con pino.", R.drawable.banner_completos)
+            Receta(2, "Humitas", "Deliciosas humitas de choclo.", R.drawable.banner_humitas)
         )
     }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Recetario Chile 🇨🇱", fontWeight = FontWeight.Bold) },
+                title = { Text("Al Ojo", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White
                 )
             )
+        },
+        bottomBar = {
+            AdBanner()
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .background(DarkBg)
         ) {
             val pagerState = rememberPagerState(pageCount = { recetas.size })
 
-            // Efecto para el movimiento automático del carrusel
             LaunchedEffect(Unit) {
                 while (true) {
                     yield()
-                    delay(3000) // Cambia cada 3 segundos
+                    delay(3000)
                     val nextPage = (pagerState.currentPage + 1) % recetas.size
                     pagerState.animateScrollToPage(nextPage)
                 }
@@ -127,7 +180,7 @@ fun MainRecipeScreen(onRecipeClick: (Receta) -> Unit) {
                     val receta = recetas[page]
                     Card(
                         shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier
                             .fillMaxSize()
                             .clickable { onRecipeClick(receta) }
@@ -143,7 +196,7 @@ fun MainRecipeScreen(onRecipeClick: (Receta) -> Unit) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .align(Alignment.BottomCenter)
-                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .background(Color.Black.copy(alpha = 0.6f))
                                     .padding(8.dp)
                             ) {
                                 Text(
@@ -160,10 +213,10 @@ fun MainRecipeScreen(onRecipeClick: (Receta) -> Unit) {
 
             Text(
                 text = "Nuestras Recetas",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.primary
+                color = OnSurfaceText
             )
 
             LazyColumn(
@@ -187,7 +240,7 @@ fun RecipeListItem(receta: Receta, onRecipeClick: (Receta) -> Unit) {
             .clickable { onRecipeClick(receta) },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = SurfaceDark
         )
     ) {
         Row(
@@ -212,12 +265,12 @@ fun RecipeListItem(receta: Receta, onRecipeClick: (Receta) -> Unit) {
                     text = receta.nombre,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = OnSurfaceText
                 )
                 Text(
                     text = receta.descripcion,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = SecondaryGray,
                     maxLines = 2
                 )
             }
@@ -228,7 +281,7 @@ fun RecipeListItem(receta: Receta, onRecipeClick: (Receta) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculadoraCompletosScreen(onBack: () -> Unit) {
-    var personasInput by remember { mutableStateOf("5") }
+    var personasInput by remember { mutableStateOf("1") }
     var porPersonaInput by remember { mutableStateOf("2") }
 
     val personas = personasInput.toIntOrNull() ?: 0
@@ -245,36 +298,40 @@ fun CalculadoraCompletosScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Calculadora de Completos", fontWeight = FontWeight.Bold) },
+                title = { Text("Completos", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White
                 )
             )
+        },
+        bottomBar = {
+            AdBanner()
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
                 .fillMaxSize()
+                .background(DarkBg)
+                .padding(16.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.banner_completos),
                 contentDescription = "Completos Italianos",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(200.dp)
                     .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -282,62 +339,67 @@ fun CalculadoraCompletosScreen(onBack: () -> Unit) {
             ) {
                 OutlinedTextField(
                     value = personasInput,
-                    onValueChange = { if (it.length <= 3) personasInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("Personas") },
+                    onValueChange = { personasInput = it.filter { c -> c.isDigit() } },
+                    label = { Text("Personas", color = SecondaryGray) },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = SecondaryGray,
+                        unfocusedBorderColor = SecondaryGray.copy(alpha = 0.5f),
+                        focusedLabelColor = OnSurfaceText,
+                        cursorColor = AccentPurple
+                    )
                 )
                 OutlinedTextField(
                     value = porPersonaInput,
-                    onValueChange = { if (it.length <= 2) porPersonaInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("C/U") },
+                    onValueChange = { porPersonaInput = it.filter { c -> c.isDigit() } },
+                    label = { Text("Completos p/p", color = SecondaryGray) },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = SecondaryGray,
+                        unfocusedBorderColor = SecondaryGray.copy(alpha = 0.5f),
+                        focusedLabelColor = OnSurfaceText,
+                        cursorColor = AccentPurple
+                    )
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "Total: $totalCompletos completos",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = OnSurfaceText
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Lista de Compras:",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Lista de compras estimada:",
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = OnSurfaceText
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(ingredientes) { ing ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = SurfaceDark
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -346,19 +408,164 @@ fun CalculadoraCompletosScreen(onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = ing.nombre, 
-                                    fontWeight = FontWeight.Bold, 
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = ing.nombre, 
+                                color = SecondaryGray,
+                                fontSize = 16.sp
+                            )
                             Text(
                                 text = ing.cantidad,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 18.sp
+                                color = AccentPurple,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CalculadoraHumitasScreen(onBack: () -> Unit) {
+    var personasInput by remember { mutableStateOf("1") }
+    var porPersonaInput by remember { mutableStateOf("2") }
+
+    val personas = personasInput.toIntOrNull() ?: 0
+    val porPersona = porPersonaInput.toIntOrNull() ?: 0
+    val totalHumitas = personas * porPersona
+
+    val ingredientes = listOf(
+        Ingrediente("Choclos (grandes)", "${totalHumitas} unidades"),
+        Ingrediente("Cebolla (mediana)", "${Math.ceil(totalHumitas * 0.5).toInt()} unidades"),
+        Ingrediente("Hojas de albahaca", "${totalHumitas * 4} unidades")
+    )
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Humitas", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White
+                )
+            )
+        },
+        bottomBar = {
+            AdBanner()
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(DarkBg)
+                .padding(16.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.banner_humitas),
+                contentDescription = "Humitas",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = personasInput,
+                    onValueChange = { personasInput = it.filter { c -> c.isDigit() } },
+                    label = { Text("Personas", color = SecondaryGray) },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = SecondaryGray,
+                        unfocusedBorderColor = SecondaryGray.copy(alpha = 0.5f),
+                        focusedLabelColor = OnSurfaceText,
+                        cursorColor = AccentPurple
+                    )
+                )
+                OutlinedTextField(
+                    value = porPersonaInput,
+                    onValueChange = { porPersonaInput = it.filter { c -> c.isDigit() } },
+                    label = { Text("Humitas p/p", color = SecondaryGray) },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = SecondaryGray,
+                        unfocusedBorderColor = SecondaryGray.copy(alpha = 0.5f),
+                        focusedLabelColor = OnSurfaceText,
+                        cursorColor = AccentPurple
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Total: $totalHumitas humitas",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = OnSurfaceText
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Lista de compras estimada:",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = OnSurfaceText
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(ingredientes) { ing ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = SurfaceDark
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = ing.nombre, 
+                                color = SecondaryGray,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = ing.cantidad,
+                                color = AccentPurple,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
                             )
                         }
                     }
